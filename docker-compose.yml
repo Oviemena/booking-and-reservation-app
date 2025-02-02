@@ -1,0 +1,66 @@
+services: 
+  booking:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    restart: unless-stopped
+    command: npm run start:dev
+    env_file:
+      - .env
+    depends_on:
+      - postgresql-master
+      - postgresql-slave
+    networks:
+      - app-network
+  
+
+  postgresql-master:
+    image: 'bitnami/postgresql:latest'
+    ports:
+      - '5432:5432'
+    volumes:
+      - 'postgresql_master_data:/bitnami/postgresql'
+    environment:
+      - POSTGRESQL_REPLICATION_MODE=master
+      - POSTGRESQL_REPLICATION_USER=repl_user
+      - POSTGRESQL_REPLICATION_PASSWORD=repl_password
+      - POSTGRESQL_USERNAME=postgres
+      - POSTGRESQL_PASSWORD=my_password
+      - POSTGRESQL_DATABASE=my_database
+    container_name: postgresql-master
+    networks:
+      app-network:
+        aliases:
+          - postgresql-master
+  postgresql-slave:
+    image: 'bitnami/postgresql:latest'
+    ports:
+      - '5433:5432'
+    depends_on:
+      - postgresql-master
+    environment:
+      - POSTGRESQL_REPLICATION_MODE=slave
+      - POSTGRESQL_REPLICATION_USER=repl_user
+      - POSTGRESQL_REPLICATION_PASSWORD=repl_password
+      - POSTGRESQL_MASTER_HOST=postgresql-master
+      - POSTGRESQL_PASSWORD=my_password
+      - POSTGRESQL_MASTER_PORT_NUMBER=5432
+    container_name: postgresql-slave
+    networks:
+      app-network:
+        aliases:
+          - postgresql-slave
+          
+networks:
+  app-network:
+    name: app-network
+    driver: bridge
+
+volumes:
+  postgresql_master_data:
